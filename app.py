@@ -41,17 +41,16 @@ def admin_login():
     password = request.form.get("password", "")
     if password == ADMIN_PASSWORD:
         session["role"] = "admin"
-        flash("已切换为管理员", "toast")
+        return redirect(request.referrer or url_for("index") + "?toast=已切换为管理员")
     else:
-        flash("密码错误", "toast-error")
+        flash("密码错误", "danger")
     return redirect(request.referrer or url_for("index"))
 
 
 @app.route("/admin/logout")
 def admin_logout():
     session.pop("role", None)
-    flash("已切换为普通用户", "toast")
-    return redirect(url_for("index"))
+    return redirect(url_for("index") + "?toast=已切换为普通用户")
 
 # --- Models ---
 

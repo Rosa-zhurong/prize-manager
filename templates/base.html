@@ -32,7 +32,7 @@
         .copy-link:hover { color: #0d6efd; }
         .loading-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,0.8); display: flex; align-items: center; justify-content: center; z-index: 9999; display: none; }
         .loading-overlay.active { display: flex; }
-        .toast-container { position: fixed; top: 20px; right: 20px; z-index: 1050; }
+        .toast-container { z-index: 1050; }
         .img-clickable { cursor: zoom-in; transition: transform 0.15s; }
         .img-clickable:hover { transform: scale(1.03); }
     </style>
@@ -95,11 +95,7 @@
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                    {% if category in ('toast', 'toast-error') %}
-                    <div class="alert {% if category == 'toast' %}alert-success{% else %}alert-danger{% endif %} alert-dismissible fade show auto-toast" role="alert">
-                        {{ message }}
-                    </div>
-                    {% else %}
+                    {% if category not in ('toast', 'toast-error') %}
                     <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
                         {{ message }}
                         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
@@ -118,7 +114,7 @@
         </div>
     </div>
 
-    <div class="toast-container" id="toastContainer"></div>
+    <div class="toast-container position-fixed top-0 end-0 p-3" id="toastContainer"></div>
 
     <!-- Image Lightbox -->
     <div class="modal fade" id="imageModal" tabindex="-1" aria-hidden="true">
@@ -192,12 +188,23 @@
             new bootstrap.Modal(modal).show();
         });
 
-        document.querySelectorAll('.auto-toast').forEach(el => {
+        (function() {
+            const params = new URLSearchParams(window.location.search);
+            const msg = params.get('toast');
+            if (!msg) return;
+            history.replaceState(null, '', window.location.pathname);
+            const container = document.getElementById('toastContainer');
+            const toastEl = document.createElement('div');
+            toastEl.className = 'toast align-items-center border-0 show';
+            toastEl.setAttribute('role', 'alert');
+            toastEl.style.cssText = 'min-width:220px;box-shadow:0 4px 12px rgba(0,0,0,0.15);';
+            toastEl.innerHTML = `<div class="d-flex"><div class="toast-body fw-semibold" style="font-size:0.9rem;"><i class="bi bi-check-circle-fill text-success me-2"></i>${msg}</div></div>`;
+            container.appendChild(toastEl);
             setTimeout(() => {
-                el.classList.remove('show');
-                setTimeout(() => el.remove(), 300);
+                toastEl.classList.remove('show');
+                setTimeout(() => toastEl.remove(), 300);
             }, 3000);
-        });
+        })();
     </script>
     {% block scripts %}{% endblock %}
 </body>
