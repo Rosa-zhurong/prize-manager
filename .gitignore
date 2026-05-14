@@ -5,3 +5,4 @@ venv/
 .pytest_cache/
 *.db
 static/uploads/
+.vercel
