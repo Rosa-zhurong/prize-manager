@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}{{ title }} - 部门奖品管理系统{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">{{ title }}</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label for="name" class="form-label">奖品名称 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="name" name="name"
+                               value="{{ prize.name if prize else '' }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="category" class="form-label">分类</label>
+                        <select class="form-select" id="category" name="category">
+                            {% set categories = ['实物奖品', '虚拟奖品', '奖金', '其他'] %}
+                            {% for cat in categories %}
+                            <option value="{{ cat }}" {{ 'selected' if prize and prize.category == cat }}>{{ cat }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="unit_price" class="form-label">单价 (元) <span class="text-danger">*</span></label>
+                        <input type="number" step="0.01" min="0" class="form-control" id="unit_price" name="unit_price"
+                               value="{{ '%.2f'|format(prize.unit_price) if prize else '' }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="stock" class="form-label">库存数量 <span class="text-danger">*</span></label>
+                        <input type="number" min="0" class="form-control" id="stock" name="stock"
+                               value="{{ prize.stock if prize else '' }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="low_stock_threshold" class="form-label">库存预警阈值</label>
+                        <input type="number" min="0" class="form-control" id="low_stock_threshold" name="low_stock_threshold"
+                               value="{{ prize.low_stock_threshold if prize else 5 }}">
+                        <div class="form-text">库存低于此值时在首页显示预警</div>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-circle me-1"></i>{{ '更新' if prize else '添加' }}
+                        </button>
+                        <a href="/prizes" class="btn btn-outline-secondary">取消</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

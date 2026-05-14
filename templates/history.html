@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}申请记录 - 部门奖品管理系统{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0">申请记录</h4>
+    <div class="d-flex gap-2">
+        <div class="input-group input-group-sm" style="width:250px;">
+            <span class="input-group-text"><i class="bi bi-search"></i></span>
+            <input type="text" class="form-control" id="searchInput" placeholder="搜索申请人/用途/奖品...">
+        </div>
+        <select class="form-select form-select-sm" id="statusFilter" style="width:120px;">
+            <option value="">全部状态</option>
+            <option value="已通过">已通过</option>
+            <option value="已取消">已取消</option>
+        </select>
+        <a href="/export" class="btn btn-success btn-sm"><i class="bi bi-download me-1"></i>导出</a>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0" id="historyTable">
+                <thead class="table-light">
+                    <tr>
+                        <th>编号</th>
+                        <th>申请人</th>
+                        <th>用途</th>
+                        <th>奖品项数</th>
+                        <th>状态</th>
+                        <th>申请时间</th>
+                        <th>修改时间</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for app in applications %}
+                    <tr data-search="{{ app.applicant }} {{ app.purpose }} {{ app.items|map(attribute='prize')|map(attribute='name')|join(' ') }}"
+                        data-status="{{ app.status }}">
+                        <td><code>{{ app.token[:8] }}</code></td>
+                        <td>{{ app.applicant }}</td>
+                        <td><span class="text-truncate d-inline-block" style="max-width:200px;" title="{{ app.purpose }}">{{ app.purpose }}</span></td>
+                        <td>{{ app.items|length }} 项</td>
+                        <td>
+                            {% if app.status == '已通过' %}
+                                <span class="badge bg-success">已通过</span>
+                            {% elif app.status == '已取消' %}
+                                <span class="badge bg-secondary">已取消</span>
+                            {% else %}
+                                <span class="badge bg-warning">{{ app.status }}</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ app.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                        <td>{{ app.updated_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                        <td>
+                            <a href="/application/{{ app.token }}" class="btn btn-sm btn-outline-primary">查看</a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="8" class="text-center text-muted py-4">暂无申请记录</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{% block scripts %}
+<script>
+    const searchInput = document.getElementById('searchInput');
+    const statusFilter = document.getElementById('statusFilter');
+    const table = document.getElementById('historyTable');
+    const rows = table.querySelectorAll('tbody tr[data-search]');
+
+    function filterTable() {
+        const keyword = searchInput.value.toLowerCase();
+        const status = statusFilter.value;
+        rows.forEach(row => {
+            const matchSearch = !keyword || row.dataset.search.toLowerCase().includes(keyword);
+            const matchStatus = !status || row.dataset.status === status;
+            row.style.display = matchSearch && matchStatus ? '' : 'none';
+        });
+    }
+
+    searchInput.addEventListener('input', filterTable);
+    statusFilter.addEventListener('change', filterTable);
+</script>
+{% endblock %}
+{% endblock %}

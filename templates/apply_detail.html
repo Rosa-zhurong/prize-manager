@@ -1,0 +1,358 @@
+{% extends "base.html" %}
+{% block title %}申请详情 - 部门奖品管理系统{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <form method="POST" action="/application/{{ application.token }}/edit" id="editForm">
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-file-text me-2"></i>申请详情（共 {{ application.items|length }} 项）</h5>
+                <span class="badge {% if application.status == '已通过' %}bg-success{% elif application.status == '已取消' %}bg-secondary{% else %}bg-warning{% endif %}">
+                    {{ application.status }}
+                </span>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-sm-3 text-muted">申请编号</div>
+                    <div class="col-sm-9"><code>{{ application.token[:8] }}</code></div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-sm-3 text-muted">申请人</div>
+                    <div class="col-sm-9">
+                        <span class="view-mode">{{ application.applicant }}</span>
+                        <input type="text" class="form-control form-control-sm edit-mode" name="applicant"
+                               value="{{ application.applicant }}" style="display:none;" required>
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-sm-3 text-muted">用途</div>
+                    <div class="col-sm-9">
+                        <span class="view-mode">{{ application.purpose }}</span>
+                        <input type="text" class="form-control form-control-sm edit-mode" name="purpose"
+                               value="{{ application.purpose }}" style="display:none;" required>
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-sm-3 text-muted">申请时间</div>
+                    <div class="col-sm-9">{{ application.created_at.strftime('%Y-%m-%d %H:%M') }}</div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-sm-3 text-muted">更新时间</div>
+                    <div class="col-sm-9">{{ application.updated_at.strftime('%Y-%m-%d %H:%M') }}</div>
+                </div>
+                {% set photos = application.photos | from_json %}
+                <div class="row mb-3">
+                    <div class="col-sm-3 text-muted">活动现场照片</div>
+                    <div class="col-sm-9">
+                        <div class="view-mode">
+                            {% if photos %}
+                            <div class="d-flex flex-wrap gap-2">
+                                {% for photo in photos %}
+                                <img src="/static/{{ photo }}" class="img-clickable"
+                                     style="width:100px;height:100px;object-fit:cover;border-radius:6px;border:1px solid #eee;cursor:pointer;">
+                                {% endfor %}
+                            </div>
+                            {% else %}
+                            <span class="text-muted">无</span>
+                            {% endif %}
+                        </div>
+                        <div class="edit-mode" style="display:none;">
+                            <div class="d-flex gap-3 align-items-start">
+                                <div id="editDropZone" class="border border-2 border-dashed rounded-3 p-3 text-center flex-shrink-0"
+                                     style="border-color:#ccc !important; cursor:pointer; transition:all 0.2s; width:100px;">
+                                    <i class="bi bi-cloud-arrow-up fs-4 text-muted"></i>
+                                    <p class="mb-0 small text-muted">拖拽或点击</p>
+                                </div>
+                                <div id="photoEditList" class="d-flex flex-wrap gap-2">
+                                    {% for photo in photos %}
+                                    <div class="position-relative existing-photo" data-path="{{ photo }}">
+                                        <img src="/static/{{ photo }}"
+                                             style="width:80px;height:80px;object-fit:cover;border-radius:6px;border:1px solid #ddd;">
+                                        <button type="button" class="btn btn-sm position-absolute top-0 end-0 p-0 lh-1 remove-photo"
+                                                style="width:18px;height:18px;font-size:10px;background:#ff4d4f;color:#fff;border-radius:50%;transform:translate(30%,-30%);">×</button>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <h6 class="mb-3 fw-semibold">申请奖品列表</h6>
+        <div id="itemsContainer">
+            {% for item in application.items %}
+            <div class="card mb-3 item-card" data-item-id="{{ item.id }}">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-auto">
+                            <div class="item-img">
+                                {% if item.prize.image_path %}
+                                <img src="/static/{{ item.prize.image_path }}" alt="{{ item.prize.name }}"
+                                     class="img-clickable"
+                                     style="width:80px; height:80px; object-fit:contain; border-radius:6px; border:1px solid #eee;">
+                                {% else %}
+                                <div class="bg-light rounded d-flex align-items-center justify-content-center"
+                                     style="width:80px;height:80px;">
+                                    <i class="bi bi-image text-muted"></i>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col view-mode">
+                            <h6 class="mb-1">{{ item.prize.name }}</h6>
+                            <span class="badge bg-secondary mb-1">{{ item.prize.category }}</span>
+                            <div class="small text-muted">数量: {{ item.quantity }}</div>
+                        </div>
+                        <div class="col edit-mode" style="display:none;">
+                            <div class="row g-2 align-items-center">
+                                <div class="col-md-6">
+                                    <select class="form-select form-select-sm" name="item_prize_id[]">
+                                        {% for prize in prizes %}
+                                        <option value="{{ prize.id }}" {{ 'selected' if prize.id == item.prize_id }}>
+                                            {{ prize.name }} (库存: {{ prize.stock }})
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                    <input type="hidden" name="item_id[]" value="{{ item.id }}">
+                                </div>
+                                <div class="col-md-3">
+                                    <input type="number" min="1" class="form-control form-control-sm"
+                                           name="item_quantity[]" value="{{ item.quantity }}">
+                                </div>
+                                <div class="col-md-3 text-end">
+                                    <button type="button" class="btn btn-outline-danger btn-sm remove-item-btn">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        </form>
+
+        {% if application.status != '已取消' %}
+        <input type="hidden" name="deleted_photos" id="deletedPhotos" value="">
+        <input type="file" name="new_photos[]" id="newPhotosUpload" multiple accept="image/*" style="display:none;">
+
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div class="edit-mode" style="display:none;">
+                <button type="button" class="btn btn-outline-success btn-sm" id="addItemBtn">
+                    <i class="bi bi-plus-circle me-1"></i>添加奖品
+                </button>
+            </div>
+            <div class="d-flex gap-2">
+                <div class="view-mode">
+                    <button type="button" class="btn btn-outline-primary btn-sm" id="editBtn">
+                        <i class="bi bi-pencil-square me-1"></i>编辑
+                    </button>
+                </div>
+                <div class="edit-mode" style="display:none;">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="cancelBtn">取消</button>
+                </div>
+                <form method="POST" action="/application/{{ application.token }}/cancel" class="d-inline view-mode"
+                      onsubmit="return confirm('确定要取消此申请吗？所有奖品库存将自动恢复。')">
+                    <button type="submit" class="btn btn-outline-danger btn-sm">
+                        <i class="bi bi-x-circle me-1"></i>取消申请
+                    </button>
+                </form>
+                <div class="edit-mode" style="display:none;">
+                    <button type="submit" class="btn btn-primary btn-sm" form="editForm">
+                        <i class="bi bi-check-circle me-1"></i>保存修改
+                    </button>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let itemsContainerHTML = '';
+
+function enterEdit() {
+    itemsContainerHTML = document.getElementById('itemsContainer').innerHTML;
+    document.querySelectorAll('.view-mode').forEach(el => el.style.display = 'none');
+    document.querySelectorAll('.edit-mode').forEach(el => el.style.display = '');
+}
+
+function exitEdit() {
+    document.getElementById('itemsContainer').innerHTML = itemsContainerHTML;
+    document.getElementById('deletedPhotos').value = '';
+    document.getElementById('photoEditList').querySelectorAll('.existing-photo').forEach(el => {
+        el.style.opacity = '1';
+    });
+    document.querySelectorAll('.view-mode').forEach(el => el.style.display = '');
+    document.querySelectorAll('.edit-mode').forEach(el => el.style.display = 'none');
+    document.querySelectorAll('#itemsContainer .remove-item-btn').forEach(btn => {
+        btn.addEventListener('click', function() { this.closest('.item-card').remove(); });
+    });
+}
+
+function getPrizeOptions() {
+    const sel = document.querySelector('#itemsContainer select');
+    return sel ? sel.innerHTML : '';
+}
+
+const prizeImages = {
+    {% for prize in prizes %}
+    {{ prize.id }}: "{{ prize.image_path or '' }}"{% if not loop.last %},{% endif %}
+    {% endfor %}
+};
+
+function addItem() {
+    const container = document.getElementById('itemsContainer');
+    const div = document.createElement('div');
+    div.className = 'card mb-3 item-card';
+    div.innerHTML = `
+        <div class="card-body">
+            <div class="row align-items-center">
+                <div class="col-auto">
+                    <div class="item-img bg-light rounded d-flex align-items-center justify-content-center"
+                         style="width:80px;height:80px;">
+                        <i class="bi bi-image text-muted"></i>
+                    </div>
+                </div>
+                <div class="col">
+                    <div class="row g-2 align-items-center">
+                        <div class="col-md-6">
+                            <select class="form-select form-select-sm" name="item_prize_id[]">${getPrizeOptions()}</select>
+                            <input type="hidden" name="item_id[]" value="">
+                        </div>
+                        <div class="col-md-3">
+                            <input type="number" min="1" class="form-control form-control-sm" name="item_quantity[]" value="1">
+                        </div>
+                        <div class="col-md-3 text-end">
+                            <button type="button" class="btn btn-outline-danger btn-sm remove-item-btn">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+    const select = div.querySelector('select');
+    select.addEventListener('change', function() {
+        const val = this.value;
+        // Check duplicate
+        const allSelects = document.querySelectorAll('#itemsContainer select');
+        let count = 0;
+        allSelects.forEach(s => { if (s.value === val) count++; });
+        if (count > 1) {
+            alert('该奖品已选择，请勿重复添加');
+            this.value = '';
+            return;
+        }
+        const img = prizeImages[val];
+        const imgEl = div.querySelector('.item-img');
+        if (img) {
+            imgEl.innerHTML = `<img src="/static/${img}" style="width:80px;height:80px;object-fit:contain;border-radius:6px;">`;
+        } else {
+            imgEl.innerHTML = '<i class="bi bi-image text-muted"></i>';
+        }
+    });
+    div.querySelector('.remove-item-btn').addEventListener('click', function() {
+        div.remove();
+    });
+    container.appendChild(div);
+}
+
+document.getElementById('editBtn').addEventListener('click', enterEdit);
+document.getElementById('cancelBtn').addEventListener('click', exitEdit);
+document.getElementById('addItemBtn').addEventListener('click', addItem);
+
+document.querySelectorAll('.remove-item-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+        this.closest('.item-card').remove();
+    });
+});
+
+// Update image when changing existing prize selection
+document.querySelectorAll('#itemsContainer select').forEach(select => {
+    select.addEventListener('change', function() {
+        const val = this.value;
+        const card = this.closest('.item-card');
+        const imgEl = card.querySelector('.item-img');
+        if (!imgEl) return;
+        const img = prizeImages[val];
+        if (img) {
+            imgEl.innerHTML = `<img src="/static/${img}" style="width:80px;height:80px;object-fit:contain;border-radius:6px;">`;
+        } else {
+            imgEl.innerHTML = '<i class="bi bi-image text-muted"></i>';
+        }
+    });
+});
+
+// Photo management in edit mode
+const deletedPhotos = document.getElementById('deletedPhotos');
+const newPhotosUpload = document.getElementById('newPhotosUpload');
+const photoEditList = document.getElementById('photoEditList');
+const editDropZone = document.getElementById('editDropZone');
+
+editDropZone.addEventListener('click', () => newPhotosUpload.click());
+
+editDropZone.addEventListener('dragover', e => {
+    e.preventDefault();
+    editDropZone.style.borderColor = '#0d6efd';
+    editDropZone.style.background = '#e7f1ff';
+});
+editDropZone.addEventListener('dragleave', () => {
+    editDropZone.style.borderColor = '#ccc';
+    editDropZone.style.background = '';
+});
+editDropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    editDropZone.style.borderColor = '#ccc';
+    editDropZone.style.background = '';
+    for (const f of e.dataTransfer.files) {
+        if (f.type.startsWith('image/')) addPhotoPreview(f);
+    }
+});
+
+newPhotosUpload.addEventListener('change', function() {
+    for (const f of this.files) {
+        if (f.type.startsWith('image/')) addPhotoPreview(f);
+    }
+    this.value = '';
+});
+
+function addPhotoPreview(file) {
+    const reader = new FileReader();
+    reader.onload = function(ev) {
+        const div = document.createElement('div');
+        div.className = 'position-relative';
+        div.innerHTML = `
+            <img src="${ev.target.result}" style="width:80px;height:80px;object-fit:cover;border-radius:6px;border:1px solid #ddd;">
+            <button type="button" class="btn btn-sm position-absolute top-0 end-0 p-0 lh-1 remove-photo"
+                    style="width:18px;height:18px;font-size:10px;background:#ff4d4f;color:#fff;border-radius:50%;transform:translate(30%,-30%);">×</button>`;
+        div.querySelector('.remove-photo').addEventListener('click', function() { div.remove(); });
+        photoEditList.appendChild(div);
+    };
+    reader.readAsDataURL(file);
+}
+
+document.querySelectorAll('.remove-photo').forEach(btn => {
+    btn.addEventListener('click', function() {
+        const photo = this.closest('.existing-photo');
+        if (photo) {
+            const path = photo.dataset.path;
+            let deleted = deletedPhotos.value ? deletedPhotos.value.split(',') : [];
+            deleted.push(path);
+            deletedPhotos.value = deleted.join(',');
+            photo.remove();
+        } else {
+            this.parentElement.remove();
+        }
+    });
+});
+</script>
+{% endblock %}

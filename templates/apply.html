@@ -1,0 +1,267 @@
+{% extends "base.html" %}
+{% block title %}申请奖品 - 部门奖品管理系统{% endblock %}
+
+{% block content %}
+<style>
+    .prize-row { opacity: 0.45; transition: opacity 0.2s; }
+    .prize-row.table-active { opacity: 1; }
+</style>
+<div class="row justify-content-center">
+    <div class="col-md-10">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-plus-circle me-2"></i>申请奖品</h5>
+            </div>
+            <div class="card-body">
+                {% if not prizes %}
+                <div class="text-center text-muted py-4">
+                    <i class="bi bi-inbox fs-1"></i>
+                    <p class="mt-2">暂无可申请的奖品（库存均为0）</p>
+                </div>
+                {% else %}
+                <form method="POST" id="applyForm" enctype="multipart/form-data">
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label for="applicant" class="form-label">申请人 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="applicant" name="applicant" required
+                                   value="{{ form_data.applicant if form_data else '' }}" placeholder="请输入你的姓名">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="purpose" class="form-label">用途 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="purpose" name="purpose" required
+                                   value="{{ form_data.purpose if form_data else '' }}" placeholder="请说明申请奖品的用途">
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label">活动现场照片 <small class="text-muted">（可多选，选填）</small></label>
+                        <div class="d-flex gap-3 align-items-start">
+                            <div id="dropZone" class="border border-2 border-dashed rounded-3 p-3 text-center flex-shrink-0"
+                                 style="border-color:#ccc !important; cursor:pointer; transition:all 0.2s; width:140px;">
+                                <i class="bi bi-cloud-arrow-up fs-3 text-muted"></i>
+                                <p class="mb-0 small text-muted">拖拽或点击</p>
+                            </div>
+                            <input type="file" name="photos[]" id="photoInput"
+                                   multiple accept="image/*" style="display:none;">
+                            <div id="photoPreview" class="d-flex flex-wrap gap-2"></div>
+                        </div>
+                    </div>
+
+                    <label class="form-label fw-semibold mb-2">申请奖品列表 <small class="text-muted">（勾选后填写数量）</small></label>
+
+                    <div class="table-responsive">
+                        <table class="table align-middle mb-0" id="prizeTable">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width:40px;"></th>
+                                    <th style="width:70px;">图片</th>
+                                    <th>奖品名称</th>
+                                    <th style="width:90px;">单价</th>
+                                    <th style="width:80px;">库存</th>
+                                    <th style="width:120px;" class="text-center">数量</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for prize in prizes %}
+                                <tr class="prize-row" data-prize-id="{{ prize.id }}">
+                                    <td>
+                                        <div class="form-check">
+                                            <input class="form-check-input prize-check" type="checkbox"
+                                                   value="{{ prize.id }}" name="prize_id[]">
+                                        </div>
+                                    </td>
+                                    <td>
+                                        {% if prize.image_path %}
+                                        <img src="/static/{{ prize.image_path }}" alt="{{ prize.name }}"
+                                             class="img-clickable"
+                                             data-src="/static/{{ prize.image_path }}"
+                                             style="width:50px; height:50px; object-fit:contain; border-radius:4px; cursor:pointer;">
+                                        {% else %}
+                                        <div class="bg-light rounded d-flex align-items-center justify-content-center"
+                                             style="width:50px; height:50px;">
+                                            <i class="bi bi-image text-muted"></i>
+                                        </div>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="fw-semibold">{{ prize.name }}</div>
+                                        <small class="text-muted">{{ prize.category }}</small>
+                                    </td>
+                                    <td>¥{{ "%.2f"|format(prize.unit_price) }}</td>
+                                    <td>
+                                        <span class="badge {% if prize.stock <= prize.low_stock_threshold %}bg-danger{% else %}bg-success{% endif %}">
+                                            {{ prize.stock }}
+                                        </span>
+                                    </td>
+                                    <td class="text-center">
+                                        <div class="qty-wrapper" style="display:none;">
+                                            <input type="number" min="1" max="{{ prize.stock }}"
+                                                   class="form-control form-control-sm text-center quantity-input"
+                                                   name="quantity[]" value="1" disabled>
+                                            <div class="invalid-feedback small">超出库存</div>
+                                        </div>
+                                        <span class="text-muted select-hint">未选择</span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center mt-3 pt-3 border-top">
+                        <div class="text-muted">
+                            已选 <strong id="selectedCount">0</strong> 项，
+                            共 <strong id="totalQty">0</strong> 件
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-lg" id="submitBtn" disabled>
+                            <i class="bi bi-send me-1"></i>提交申请
+                        </button>
+                    </div>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const prizeData = {
+        {% for prize in prizes %}
+        {{ prize.id }}: { price: {{ prize.unit_price }}, stock: {{ prize.stock }} }{% if not loop.last %},{% endif %}
+        {% endfor %}
+    };
+
+    function updateSummary() {
+        let selectedCount = 0, totalQty = 0;
+
+        document.querySelectorAll('.prize-row').forEach(row => {
+            const cb = row.querySelector('.prize-check');
+            const qtyInput = row.querySelector('.quantity-input');
+            const id = parseInt(cb.value);
+            const data = prizeData[id];
+
+            if (cb.checked) {
+                const qty = parseInt(qtyInput.value) || 0;
+                selectedCount++;
+                totalQty += qty;
+
+                if (qty > data.stock) {
+                    qtyInput.classList.add('is-invalid');
+                } else {
+                    qtyInput.classList.remove('is-invalid');
+                }
+            }
+        });
+
+        document.getElementById('selectedCount').textContent = selectedCount;
+        document.getElementById('totalQty').textContent = totalQty;
+        document.getElementById('submitBtn').disabled = selectedCount === 0;
+    }
+
+    document.querySelectorAll('.prize-row').forEach(row => {
+        const cb = row.querySelector('.prize-check');
+        const qtyWrapper = row.querySelector('.qty-wrapper');
+        const qtyInput = row.querySelector('.quantity-input');
+        const hint = row.querySelector('.select-hint');
+
+        cb.addEventListener('change', function() {
+            if (this.checked) {
+                row.classList.add('table-active');
+                qtyWrapper.style.display = '';
+                hint.style.display = 'none';
+                qtyInput.disabled = false;
+                qtyInput.focus();
+            } else {
+                row.classList.remove('table-active');
+                qtyWrapper.style.display = 'none';
+                hint.style.display = '';
+                qtyInput.disabled = true;
+                qtyInput.value = 1;
+                qtyInput.classList.remove('is-invalid');
+            }
+            updateSummary();
+        });
+
+        qtyInput.addEventListener('input', updateSummary);
+    });
+
+    document.getElementById('applyForm').addEventListener('submit', function(e) {
+        document.querySelectorAll('.prize-check:not(:checked)').forEach(cb => {
+            const row = cb.closest('.prize-row');
+            const input = row.querySelector('.quantity-input');
+            input.disabled = true;
+        });
+    });
+
+    updateSummary();
+
+    // Photo upload with drag & drop
+    const dropZone = document.getElementById('dropZone');
+    const photoInput = document.getElementById('photoInput');
+    const photoPreview = document.getElementById('photoPreview');
+    let uploadedFiles = [];
+
+    dropZone.addEventListener('click', () => photoInput.click());
+
+    dropZone.addEventListener('dragover', e => {
+        e.preventDefault();
+        dropZone.style.borderColor = '#0d6efd';
+        dropZone.style.background = '#e7f1ff';
+    });
+    dropZone.addEventListener('dragleave', () => {
+        dropZone.style.borderColor = '#ccc';
+        dropZone.style.background = '';
+    });
+    dropZone.addEventListener('drop', e => {
+        e.preventDefault();
+        dropZone.style.borderColor = '#ccc';
+        dropZone.style.background = '';
+        for (const f of e.dataTransfer.files) {
+            if (f.type.startsWith('image/')) uploadedFiles.push(f);
+        }
+        syncPhotoInput();
+        renderPreviews();
+    });
+
+    photoInput.addEventListener('change', () => {
+        for (const f of photoInput.files) {
+            uploadedFiles.push(f);
+        }
+        syncPhotoInput();
+        renderPreviews();
+    });
+
+    function syncPhotoInput() {
+        const dt = new DataTransfer();
+        for (const f of uploadedFiles) dt.items.add(f);
+        photoInput.files = dt.files;
+    }
+
+    function removePhoto(idx) {
+        uploadedFiles.splice(idx, 1);
+        syncPhotoInput();
+        renderPreviews();
+    }
+
+    function renderPreviews() {
+        photoPreview.innerHTML = '';
+        uploadedFiles.forEach((file, idx) => {
+            if (!file.type.startsWith('image/')) return;
+            const reader = new FileReader();
+            reader.onload = function(ev) {
+                const div = document.createElement('div');
+                div.className = 'position-relative';
+                div.innerHTML = `
+                    <img src="${ev.target.result}" style="width:80px;height:80px;object-fit:cover;border-radius:6px;border:1px solid #ddd;">
+                    <button type="button" class="btn btn-sm position-absolute top-0 end-0 p-0 lh-1"
+                            style="width:18px;height:18px;font-size:10px;background:#ff4d4f;color:#fff;border-radius:50%;transform:translate(30%,-30%);"
+                            onclick="removePhoto(${idx})">×</button>`;
+                photoPreview.appendChild(div);
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+</script>
+{% endblock %}
