@@ -324,25 +324,42 @@ def prize_delete(id):
 # Application
 @app.route("/apply", methods=["GET", "POST"])
 def apply():
+    def _get_user_applications():
+        applicant = session.get("applicant", "")
+        tokens = session_tokens()
+        if not applicant and not tokens:
+            return []
+        conditions = []
+        if applicant:
+            conditions.append(Application.applicant == applicant)
+        if tokens:
+            conditions.append(Application.token.in_(tokens))
+        return Application.query.options(
+            selectinload(Application.items).joinedload(ApplicationItem.prize)
+        ).filter(or_(*conditions)).order_by(
+            Application.created_at.desc()).all()
+
     if request.method == "POST":
         purpose = request.form["purpose"]
         applicant = request.form.get("applicant", "").strip()
         prize_ids = request.form.getlist("prize_id[]")
         quantities = request.form.getlist("quantity[]")
 
+        prizes = Prize.query.filter(Prize.stock > 0).order_by(
+            Prize.category, Prize.name).all()
+        user_apps = _get_user_applications()
+
         if not applicant:
-            prizes = Prize.query.filter(Prize.stock > 0).order_by(
-                Prize.category, Prize.name).all()
             flash("请填写申请人", "danger")
             return render_template("apply.html", prizes=prizes,
-                                   form_data=request.form)
+                                   form_data=request.form,
+                                   applications=user_apps)
 
         if not prize_ids or not any(pid for pid in prize_ids):
-            prizes = Prize.query.filter(Prize.stock > 0).order_by(
-                Prize.category, Prize.name).all()
             flash("请至少选择一个奖品", "danger")
             return render_template("apply.html", prizes=prizes,
-                                   form_data=request.form)
+                                   form_data=request.form,
+                                   applications=user_apps)
 
         # Validate all items first
         items_data = []
@@ -368,20 +385,18 @@ def apply():
             if not prize:
                 continue
             if quantity > prize.stock:
-                prizes = Prize.query.filter(Prize.stock > 0).order_by(
-                    Prize.category, Prize.name).all()
                 flash(f"「{prize.name}」库存不足（剩余 {prize.stock}）",
                       "danger")
                 return render_template("apply.html", prizes=prizes,
-                                       form_data=request.form)
+                                       form_data=request.form,
+                                       applications=user_apps)
             items_data.append((prize, quantity))
 
         if not items_data:
-            prizes = Prize.query.filter(Prize.stock > 0).order_by(
-                Prize.category, Prize.name).all()
             flash("请至少选择一个奖品", "danger")
             return render_template("apply.html", prizes=prizes,
-                                   form_data=request.form)
+                                   form_data=request.form,
+                                   applications=user_apps)
 
         # Handle photo uploads
         photos = request.files.getlist("photos[]")
@@ -410,14 +425,15 @@ def apply():
         db.session.commit()
         remember_application(application)
         flash("申请已通过！", "success")
-        detail_url = url_for("apply_history")
         if wants_json():
-            return jsonify({"ok": True, "redirect": detail_url})
-        return redirect(detail_url)
+            return jsonify({"ok": True, "redirect": url_for("apply")})
+        return redirect(url_for("apply"))
 
     prizes = Prize.query.filter(Prize.stock > 0).order_by(
         Prize.category, Prize.name).all()
-    return render_template("apply.html", prizes=prizes, form_data={})
+    user_apps = _get_user_applications()
+    return render_template("apply.html", prizes=prizes, form_data={},
+                           applications=user_apps)
 
 
 @app.route("/application/<token>")
@@ -441,8 +457,8 @@ def apply_edit(token):
     if application.status == "已取消":
         flash("已取消的申请不可编辑", "danger")
         return redirect(url_for("apply_detail", token=token))
-    if application.status == "已关单" and session.get("role") != "admin":
-        flash("已关单，不可编辑", "danger")
+    if application.status == "已完结" and session.get("role") != "admin":
+        flash("已完结，不可编辑", "danger")
         return redirect(url_for("apply_detail", token=token))
 
     new_purpose = request.form.get("purpose", application.purpose)
@@ -566,12 +582,12 @@ def apply_close(token):
         return redirect(url_for("index"))
     application = Application.query.filter_by(token=token).first_or_404()
     if application.status != "已通过":
-        flash("当前状态不可关单", "danger")
+        flash("当前状态不可完结", "danger")
         return redirect(url_for("apply_detail", token=token))
-    application.status = "已关单"
+    application.status = "已完结"
     application.updated_at = now_cst()
     db.session.commit()
-    flash("已关单", "success")
+    flash("已完结", "success")
     return redirect(url_for("apply_detail", token=token))
 
 

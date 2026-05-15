@@ -16,7 +16,7 @@
             <option value="">全部状态</option>
             <option value="已通过">已通过</option>
             <option value="已取消">已取消</option>
-            <option value="已关单">已关单</option>
+            <option value="已完结">已完结</option>
         </select>
         <a href="/export" class="btn btn-success btn-sm"><i class="bi bi-download me-1"></i>导出</a>
         {% endif %}
@@ -52,8 +52,8 @@
                                 <span class="badge bg-success">已通过</span>
                             {% elif app.status == '已取消' %}
                                 <span class="badge bg-secondary">已取消</span>
-                            {% elif app.status == '已关单' %}
-                                <span class="badge bg-dark">已关单</span>
+                            {% elif app.status == '已完结' %}
+                                <span class="badge bg-dark">已完结</span>
                             {% else %}
                                 <span class="badge bg-warning">{{ app.status }}</span>
                             {% endif %}
@@ -63,8 +63,8 @@
                         <td>
                             <div class="d-flex gap-1">
                                 <a href="/application/{{ app.token }}" class="btn btn-sm btn-outline-primary">查看</a>
-                                {% if app.status == '已关单' %}
-                                <span class="btn btn-sm btn-outline-secondary disabled">已关单</span>
+                                {% if app.status == '已完结' %}
+                                <span class="btn btn-sm btn-outline-secondary disabled">已完结</span>
                                 {% elif app.status == '已取消' %}
                                 <span class="btn btn-sm btn-outline-secondary disabled">已取消</span>
                                 {% else %}

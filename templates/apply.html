@@ -5,12 +5,79 @@
 <style>
     .prize-row { opacity: 0.45; transition: opacity 0.2s; }
     .prize-row.table-active { opacity: 1; }
+    #applyFormCard { transition: all 0.3s; }
+    #applyFormCard.collapsed-form .card-body { display: none; }
+    #applyFormCard.collapsed-form .card-header { border-bottom: 0; }
 </style>
 <div class="row justify-content-center">
     <div class="col-md-10">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="mb-0"><i class="bi bi-plus-circle me-2"></i>申请奖品</h5>
+
+        {% if applications %}
+        <div id="recordsSection" class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-clock-history me-2"></i>我的申请记录</h5>
+                <span class="badge bg-secondary">{{ applications|length }} 条</span>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>编号</th>
+                                <th>用途</th>
+                                <th>奖品项数</th>
+                                <th>状态</th>
+                                <th>申请时间</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for app in applications %}
+                            <tr>
+                                <td><code>{{ app.token[:8] }}</code></td>
+                                <td><span class="text-truncate d-inline-block" style="max-width:200px;" title="{{ app.purpose }}">{{ app.purpose }}</span></td>
+                                <td>{{ app.items|length }} 项</td>
+                                <td>
+                                    {% if app.status == '已通过' %}
+                                        <span class="badge bg-success">已通过</span>
+                                    {% elif app.status == '已取消' %}
+                                        <span class="badge bg-secondary">已取消</span>
+                                    {% elif app.status == '已完结' %}
+                                        <span class="badge bg-dark">已完结</span>
+                                    {% else %}
+                                        <span class="badge bg-warning">{{ app.status }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ app.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                                <td>
+                                    <div class="d-flex gap-1">
+                                        <a href="/application/{{ app.token }}" class="btn btn-sm btn-outline-primary">查看</a>
+                                        {% if app.status == '已完结' %}
+                                        <span class="btn btn-sm btn-outline-secondary disabled">已完结</span>
+                                        {% elif app.status == '已取消' %}
+                                        <span class="btn btn-sm btn-outline-secondary disabled">已取消</span>
+                                        {% else %}
+                                        <a href="/application/{{ app.token }}?mode=edit" class="btn btn-sm btn-primary">编辑</a>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <div id="applyFormCard" class="card {% if applications %}collapsed-form{% endif %}">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-plus-circle me-2"></i>{% if applications %}新建申请{% else %}申请奖品{% endif %}</h5>
+                {% if applications %}
+                <button type="button" class="btn btn-primary btn-sm" id="expandFormBtn">
+                    <i class="bi bi-plus-circle me-1"></i>新建申请
+                </button>
+                {% endif %}
             </div>
             <div class="card-body">
                 {% if not prizes %}
@@ -132,6 +199,19 @@
         {{ prize.id }}: { price: {{ prize.unit_price }}, stock: {{ prize.stock }} }{% if not loop.last %},{% endif %}
         {% endfor %}
     };
+
+    // Expand form when clicking "新建申请"
+    const expandBtn = document.getElementById('expandFormBtn');
+    const formCard = document.getElementById('applyFormCard');
+    const recordsSection = document.getElementById('recordsSection');
+    if (expandBtn && formCard) {
+        expandBtn.addEventListener('click', function() {
+            formCard.classList.remove('collapsed-form');
+            this.style.display = 'none';
+            formCard.querySelector('.card-header h5').textContent = '申请奖品';
+            if (recordsSection) recordsSection.style.display = 'none';
+        });
+    }
 
     function updateSummary() {
         let selectedCount = 0, totalQty = 0;
