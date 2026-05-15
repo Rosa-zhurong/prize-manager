@@ -51,43 +51,6 @@
 | 前端 | Bootstrap 5.3 + Bootstrap Icons |
 | 部署 | Vercel Serverless |
 
-## 快速开始
-
-### 本地开发
-
-```bash
-# 克隆项目
-git clone https://github.com/Rosa-zhurong/prize-manager.git
-cd prize-manager
-
-# 创建虚拟环境
-python3 -m venv venv
-source venv/bin/activate
-
-# 安装依赖
-pip install -r requirements.txt
-
-# 启动开发服务器
-python app.py
-```
-
-打开浏览器访问 http://localhost:5000
-
-### 部署到 Vercel
-
-**1. 准备数据库**
-
-在 [Supabase](https://supabase.com) 创建项目，进入 Settings → Database → Connection string，选择 **Transaction pooler**（端口 `6543`），复制连接串。
-
-**2. 部署**
-
-1. Fork 本仓库
-2. 在 [Vercel](https://vercel.com) 导入项目
-3. 添加环境变量 `DATABASE_URL`，值为 Supabase 连接串
-4. 点击 Deploy
-
-> Vercel 的 `DATABASE_URL` 可能以 `postgres://` 开头，代码会自动转换为 `postgresql://`，无需手动处理。
-
 ## 项目结构
 
 ```
