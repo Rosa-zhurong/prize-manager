@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}申请奖品 - 部门奖品管理系统{% endblock %}
+{% block title %}申请奖品 - 营销与数据平台产品部 奖品管理{% endblock %}
 
 {% block content %}
 <style>
@@ -19,7 +19,7 @@
                     <p class="mt-2">暂无可申请的奖品（库存均为0）</p>
                 </div>
                 {% else %}
-                <form method="POST" id="applyForm" enctype="multipart/form-data">
+                <form method="POST" id="applyForm" enctype="multipart/form-data" data-loading="off">
                     <div class="row g-3 mb-4">
                         <div class="col-md-6">
                             <label for="applicant" class="form-label">申请人 <span class="text-danger">*</span></label>
@@ -47,9 +47,9 @@
                         </div>
                     </div>
 
-                    <label class="form-label fw-semibold mb-2">申请奖品列表 <small class="text-muted">（勾选后填写数量）</small></label>
+                    <label class="form-label fw-semibold mb-2">选择奖品 <small class="text-muted">（勾选后填写数量）</small></label>
 
-                    <div class="table-responsive">
+                    <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
                         <table class="table align-middle mb-0" id="prizeTable">
                             <thead class="table-light">
                                 <tr>
@@ -187,12 +187,36 @@
         qtyInput.addEventListener('input', updateSummary);
     });
 
-    document.getElementById('applyForm').addEventListener('submit', function(e) {
+    document.getElementById('applyForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const submitBtn = document.getElementById('submitBtn');
+        if (submitBtn.disabled) return;
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>提交中...';
+        await Promise.all(pendingPhotoTasks);
+
         document.querySelectorAll('.prize-check:not(:checked)').forEach(cb => {
             const row = cb.closest('.prize-row');
             const input = row.querySelector('.quantity-input');
             input.disabled = true;
         });
+
+        try {
+            const resp = await fetch(this.action || window.location.href, {
+                method: 'POST',
+                body: new FormData(this),
+                credentials: 'same-origin',
+                headers: { 'X-Requested-With': 'fetch' }
+            });
+            if (!resp.ok) throw new Error('submit failed');
+            const data = await resp.json();
+            window.location.assign(data.redirect || window.location.href);
+        } catch (err) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="bi bi-send me-1"></i>提交申请';
+            document.getElementById('loadingOverlay').classList.remove('active');
+            alert('提交失败，请检查网络后重试');
+        }
     });
 
     updateSummary();
@@ -202,6 +226,7 @@
     const photoInput = document.getElementById('photoInput');
     const photoPreview = document.getElementById('photoPreview');
     let uploadedFiles = [];
+    let pendingPhotoTasks = [];
 
     dropZone.addEventListener('click', () => photoInput.click());
 
@@ -218,20 +243,61 @@
         e.preventDefault();
         dropZone.style.borderColor = '#ccc';
         dropZone.style.background = '';
-        for (const f of e.dataTransfer.files) {
-            if (f.type.startsWith('image/')) uploadedFiles.push(f);
-        }
-        syncPhotoInput();
-        renderPreviews();
+        addPhotos(e.dataTransfer.files);
     });
 
     photoInput.addEventListener('change', () => {
-        for (const f of photoInput.files) {
-            uploadedFiles.push(f);
-        }
-        syncPhotoInput();
-        renderPreviews();
+        addPhotos(photoInput.files);
     });
+
+    function addPhotos(files) {
+        dropZone.style.opacity = '0.65';
+        const task = (async () => {
+            for (const f of files) {
+                if (f.type.startsWith('image/')) {
+                    uploadedFiles.push(await compressImage(f));
+                }
+            }
+            syncPhotoInput();
+            renderPreviews();
+        })().finally(() => {
+            pendingPhotoTasks = pendingPhotoTasks.filter(t => t !== task);
+            if (!pendingPhotoTasks.length) dropZone.style.opacity = '';
+        });
+        pendingPhotoTasks.push(task);
+    }
+
+    function compressImage(file) {
+        if (file.size < 800 * 1024 || !/^image\/(jpeg|png|webp)$/.test(file.type)) {
+            return Promise.resolve(file);
+        }
+        return new Promise(resolve => {
+            const img = new Image();
+            const url = URL.createObjectURL(file);
+            img.onload = () => {
+                const maxSide = 1600;
+                const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+                const canvas = document.createElement('canvas');
+                canvas.width = Math.round(img.width * scale);
+                canvas.height = Math.round(img.height * scale);
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#fff';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                URL.revokeObjectURL(url);
+                canvas.toBlob(blob => {
+                    if (!blob) return resolve(file);
+                    const name = file.name.replace(/\.[^.]+$/, '') + '.jpg';
+                    resolve(new File([blob], name, { type: 'image/jpeg' }));
+                }, 'image/jpeg', 0.82);
+            };
+            img.onerror = () => {
+                URL.revokeObjectURL(url);
+                resolve(file);
+            };
+            img.src = url;
+        });
+    }
 
     function syncPhotoInput() {
         const dt = new DataTransfer();

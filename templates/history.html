@@ -1,10 +1,13 @@
 {% extends "base.html" %}
-{% block title %}申请记录 - 部门奖品管理系统{% endblock %}
+{% block title %}申请记录 - 营销与数据平台产品部 奖品管理{% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h4 class="mb-0">申请记录</h4>
+    <h4 class="mb-0">
+        {% if is_admin %}全部申请记录{% else %}我的申请记录{% endif %}
+    </h4>
     <div class="d-flex gap-2">
+        {% if is_admin %}
         <div class="input-group input-group-sm" style="width:250px;">
             <span class="input-group-text"><i class="bi bi-search"></i></span>
             <input type="text" class="form-control" id="searchInput" placeholder="搜索申请人/用途/奖品...">
@@ -13,8 +16,10 @@
             <option value="">全部状态</option>
             <option value="已通过">已通过</option>
             <option value="已取消">已取消</option>
+            <option value="已关单">已关单</option>
         </select>
         <a href="/export" class="btn btn-success btn-sm"><i class="bi bi-download me-1"></i>导出</a>
+        {% endif %}
     </div>
 </div>
 
@@ -36,7 +41,7 @@
                 </thead>
                 <tbody>
                     {% for app in applications %}
-                    <tr data-search="{{ app.applicant }} {{ app.purpose }} {{ app.items|map(attribute='prize')|map(attribute='name')|join(' ') }}"
+                    <tr data-search="{{ app.search_text }}"
                         data-status="{{ app.status }}">
                         <td><code>{{ app.token[:8] }}</code></td>
                         <td>{{ app.applicant }}</td>
@@ -47,6 +52,8 @@
                                 <span class="badge bg-success">已通过</span>
                             {% elif app.status == '已取消' %}
                                 <span class="badge bg-secondary">已取消</span>
+                            {% elif app.status == '已关单' %}
+                                <span class="badge bg-dark">已关单</span>
                             {% else %}
                                 <span class="badge bg-warning">{{ app.status }}</span>
                             {% endif %}
@@ -54,7 +61,16 @@
                         <td>{{ app.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
                         <td>{{ app.updated_at.strftime('%Y-%m-%d %H:%M') }}</td>
                         <td>
-                            <a href="/application/{{ app.token }}" class="btn btn-sm btn-outline-primary">查看</a>
+                            <div class="d-flex gap-1">
+                                <a href="/application/{{ app.token }}" class="btn btn-sm btn-outline-primary">查看</a>
+                                {% if app.status == '已关单' %}
+                                <span class="btn btn-sm btn-outline-secondary disabled">已关单</span>
+                                {% elif app.status == '已取消' %}
+                                <span class="btn btn-sm btn-outline-secondary disabled">已取消</span>
+                                {% else %}
+                                <a href="/application/{{ app.token }}?mode=edit" class="btn btn-sm btn-primary">编辑</a>
+                                {% endif %}
+                            </div>
                         </td>
                     </tr>
                     {% else %}
@@ -67,9 +83,11 @@
         </div>
     </div>
 </div>
+{% endblock %}
 
 {% block scripts %}
 <script>
+    {% if is_admin %}
     const searchInput = document.getElementById('searchInput');
     const statusFilter = document.getElementById('statusFilter');
     const table = document.getElementById('historyTable');
@@ -87,6 +105,6 @@
 
     searchInput.addEventListener('input', filterTable);
     statusFilter.addEventListener('change', filterTable);
+    {% endif %}
 </script>
-{% endblock %}
 {% endblock %}

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{{ title }} - 部门奖品管理系统{% endblock %}
+{% block title %}{{ title }} - 营销与数据平台产品部 奖品管理{% endblock %}
 
 {% block content %}
 <div class="row justify-content-center">
@@ -18,8 +18,7 @@
                     <div class="mb-3">
                         <label for="category" class="form-label">分类</label>
                         <select class="form-select" id="category" name="category">
-                            {% set categories = ['实物奖品', '虚拟奖品', '奖金', '其他'] %}
-                            {% for cat in categories %}
+                            {% for cat in prize_categories %}
                             <option value="{{ cat }}" {{ 'selected' if prize and prize.category == cat }}>{{ cat }}</option>
                             {% endfor %}
                         </select>

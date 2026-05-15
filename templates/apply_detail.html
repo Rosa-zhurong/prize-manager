@@ -1,14 +1,14 @@
 {% extends "base.html" %}
-{% block title %}申请详情 - 部门奖品管理系统{% endblock %}
+{% block title %}申请详情 - 营销与数据平台产品部 奖品管理{% endblock %}
 
 {% block content %}
 <div class="row justify-content-center">
     <div class="col-md-8">
-        <form method="POST" action="/application/{{ application.token }}/edit" id="editForm">
+        <form method="POST" action="/application/{{ application.token }}/edit" id="editForm" enctype="multipart/form-data">
         <div class="card mb-4">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="mb-0"><i class="bi bi-file-text me-2"></i>申请详情（共 {{ application.items|length }} 项）</h5>
-                <span class="badge {% if application.status == '已通过' %}bg-success{% elif application.status == '已取消' %}bg-secondary{% else %}bg-warning{% endif %}">
+                <span class="badge {% if application.status == '已通过' %}bg-success{% elif application.status == '已取消' %}bg-secondary{% elif application.status == '已关单' %}bg-dark{% else %}bg-warning{% endif %}">
                     {{ application.status }}
                 </span>
             </div>
@@ -49,8 +49,10 @@
                             {% if photos %}
                             <div class="d-flex flex-wrap gap-2">
                                 {% for photo in photos %}
-                                <img src="/static/{{ photo }}" class="img-clickable"
-                                     style="width:100px;height:100px;object-fit:cover;border-radius:6px;border:1px solid #eee;cursor:pointer;">
+                                <div class="position-relative" style="width:80px;height:80px;flex-shrink:0;">
+                                    <img src="{{ photo | photo_src }}" class="img-clickable"
+                                         style="width:80px;height:80px;object-fit:cover;border-radius:6px;border:1px solid #eee;cursor:pointer;">
+                                </div>
                                 {% endfor %}
                             </div>
                             {% else %}
@@ -67,7 +69,7 @@
                                 <div id="photoEditList" class="d-flex flex-wrap gap-2">
                                     {% for photo in photos %}
                                     <div class="position-relative existing-photo" data-path="{{ photo }}">
-                                        <img src="/static/{{ photo }}"
+                                        <img src="{{ photo | photo_src }}"
                                              style="width:80px;height:80px;object-fit:cover;border-radius:6px;border:1px solid #ddd;">
                                         <button type="button" class="btn btn-sm position-absolute top-0 end-0 p-0 lh-1 remove-photo"
                                                 style="width:18px;height:18px;font-size:10px;background:#ff4d4f;color:#fff;border-radius:50%;transform:translate(30%,-30%);">×</button>
@@ -134,13 +136,14 @@
             </div>
             {% endfor %}
         </div>
+        {% if application.status != '已取消' %}
+        <input type="hidden" name="deleted_photos" id="deletedPhotos" value="[]">
+        <input type="file" name="new_photos[]" id="newPhotosUpload" multiple accept="image/*" style="display:none;">
+        {% endif %}
 
         </form>
 
         {% if application.status != '已取消' %}
-        <input type="hidden" name="deleted_photos" id="deletedPhotos" value="">
-        <input type="file" name="new_photos[]" id="newPhotosUpload" multiple accept="image/*" style="display:none;">
-
         <div class="d-flex justify-content-between align-items-center mb-4">
             <div class="edit-mode" style="display:none;">
                 <button type="button" class="btn btn-outline-success btn-sm" id="addItemBtn">
@@ -148,28 +151,44 @@
                 </button>
             </div>
             <div class="d-flex gap-2">
-                <div class="view-mode">
-                    <button type="button" class="btn btn-outline-primary btn-sm" id="editBtn">
-                        <i class="bi bi-pencil-square me-1"></i>编辑
-                    </button>
-                </div>
+                {% if application.status == '已关单' %}
+                <span class="text-muted small"><i class="bi bi-lock me-1"></i>已关单，不可编辑</span>
+                {% else %}
                 <div class="edit-mode" style="display:none;">
                     <button type="button" class="btn btn-outline-secondary btn-sm" id="cancelBtn">取消</button>
                 </div>
-                <form method="POST" action="/application/{{ application.token }}/cancel" class="d-inline view-mode"
+                {% if application.status == '已通过' and edit_mode %}
+                <form method="POST" action="/application/{{ application.token }}/cancel" class="d-inline edit-mode"
+                      style="display:none;"
                       onsubmit="return confirm('确定要取消此申请吗？所有奖品库存将自动恢复。')">
                     <button type="submit" class="btn btn-outline-danger btn-sm">
                         <i class="bi bi-x-circle me-1"></i>取消申请
                     </button>
                 </form>
+                {% endif %}
+                {% if is_admin and application.status == '已通过' %}
+                <form method="POST" action="/application/{{ application.token }}/close" class="d-inline view-mode"
+                      onsubmit="return confirm('确定要关单吗？关单后申请人将不可再修改。')">
+                    <button type="submit" class="btn btn-outline-dark btn-sm">
+                        <i class="bi bi-lock me-1"></i>关单
+                    </button>
+                </form>
+                {% endif %}
                 <div class="edit-mode" style="display:none;">
                     <button type="submit" class="btn btn-primary btn-sm" form="editForm">
                         <i class="bi bi-check-circle me-1"></i>保存修改
                     </button>
                 </div>
+                {% endif %}
             </div>
         </div>
         {% endif %}
+
+        <div class="mb-4">
+            <a href="/history" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left me-1"></i>返回申请记录
+            </a>
+        </div>
 
     </div>
 </div>
@@ -181,13 +200,14 @@ let itemsContainerHTML = '';
 
 function enterEdit() {
     itemsContainerHTML = document.getElementById('itemsContainer').innerHTML;
+    document.getElementById('deletedPhotos').value = '[]';
     document.querySelectorAll('.view-mode').forEach(el => el.style.display = 'none');
     document.querySelectorAll('.edit-mode').forEach(el => el.style.display = '');
 }
 
 function exitEdit() {
     document.getElementById('itemsContainer').innerHTML = itemsContainerHTML;
-    document.getElementById('deletedPhotos').value = '';
+    document.getElementById('deletedPhotos').value = '[]';
     document.getElementById('photoEditList').querySelectorAll('.existing-photo').forEach(el => {
         el.style.opacity = '1';
     });
@@ -266,9 +286,9 @@ function addItem() {
     container.appendChild(div);
 }
 
-document.getElementById('editBtn').addEventListener('click', enterEdit);
-document.getElementById('cancelBtn').addEventListener('click', exitEdit);
-document.getElementById('addItemBtn').addEventListener('click', addItem);
+document.getElementById('editBtn')?.addEventListener('click', enterEdit);
+document.getElementById('cancelBtn')?.addEventListener('click', exitEdit);
+document.getElementById('addItemBtn')?.addEventListener('click', addItem);
 
 document.querySelectorAll('.remove-item-btn').forEach(btn => {
     btn.addEventListener('click', function() {
@@ -298,6 +318,21 @@ const newPhotosUpload = document.getElementById('newPhotosUpload');
 const photoEditList = document.getElementById('photoEditList');
 const editDropZone = document.getElementById('editDropZone');
 
+if (editDropZone && newPhotosUpload && photoEditList && deletedPhotos) {
+let newPhotoFiles = [];
+
+function syncNewPhotos() {
+    const dt = new DataTransfer();
+    newPhotoFiles.forEach(file => dt.items.add(file));
+    newPhotosUpload.files = dt.files;
+}
+
+function addNewPhoto(file) {
+    newPhotoFiles.push(file);
+    syncNewPhotos();
+    addPhotoPreview(file);
+}
+
 editDropZone.addEventListener('click', () => newPhotosUpload.click());
 
 editDropZone.addEventListener('dragover', e => {
@@ -314,15 +349,14 @@ editDropZone.addEventListener('drop', e => {
     editDropZone.style.borderColor = '#ccc';
     editDropZone.style.background = '';
     for (const f of e.dataTransfer.files) {
-        if (f.type.startsWith('image/')) addPhotoPreview(f);
+        if (f.type.startsWith('image/')) addNewPhoto(f);
     }
 });
 
 newPhotosUpload.addEventListener('change', function() {
     for (const f of this.files) {
-        if (f.type.startsWith('image/')) addPhotoPreview(f);
+        if (f.type.startsWith('image/')) addNewPhoto(f);
     }
-    this.value = '';
 });
 
 function addPhotoPreview(file) {
@@ -334,7 +368,11 @@ function addPhotoPreview(file) {
             <img src="${ev.target.result}" style="width:80px;height:80px;object-fit:cover;border-radius:6px;border:1px solid #ddd;">
             <button type="button" class="btn btn-sm position-absolute top-0 end-0 p-0 lh-1 remove-photo"
                     style="width:18px;height:18px;font-size:10px;background:#ff4d4f;color:#fff;border-radius:50%;transform:translate(30%,-30%);">×</button>`;
-        div.querySelector('.remove-photo').addEventListener('click', function() { div.remove(); });
+        div.querySelector('.remove-photo').addEventListener('click', function() {
+            newPhotoFiles = newPhotoFiles.filter(f => f !== file);
+            syncNewPhotos();
+            div.remove();
+        });
         photoEditList.appendChild(div);
     };
     reader.readAsDataURL(file);
@@ -345,14 +383,24 @@ document.querySelectorAll('.remove-photo').forEach(btn => {
         const photo = this.closest('.existing-photo');
         if (photo) {
             const path = photo.dataset.path;
-            let deleted = deletedPhotos.value ? deletedPhotos.value.split(',') : [];
+            let deleted = [];
+            try {
+                deleted = deletedPhotos.value ? JSON.parse(deletedPhotos.value) : [];
+            } catch (e) {
+                deleted = [];
+            }
             deleted.push(path);
-            deletedPhotos.value = deleted.join(',');
+            deletedPhotos.value = JSON.stringify(deleted);
             photo.remove();
         } else {
             this.parentElement.remove();
         }
     });
-});
+    });
+}
+
+{% if edit_mode and application.status == '已通过' %}
+enterEdit();
+{% endif %}
 </script>
 {% endblock %}
