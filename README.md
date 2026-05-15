@@ -70,14 +70,6 @@ prize-manager/
 └── uploads/              # 用户上传的活动照片
 ```
 
-## 管理员模式
-
-导航栏右侧点击「切换管理员」，输入密码进入管理员模式。
-
-默认密码：`1234567890`
-
-> 请在生产环境中修改 `app.py` 中的 `ADMIN_PASSWORD`
-
 ## License
 
 [MIT](LICENSE)
